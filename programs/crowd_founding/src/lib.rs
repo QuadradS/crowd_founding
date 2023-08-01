@@ -7,7 +7,7 @@ declare_id!("C71tuCNPkeoPXqVQcrt2EokX3V1KwiSDGD5nmWjCDqJV");
 pub mod crowd_founding {
     use super::*;
 
-    pub fn initialize(ctx: Context<Create>, name: String, description: String) -> ProgramResult {
+    pub fn create(ctx: Context<Create>, name: String, description: String) -> ProgramResult {
         let campaign = &mut ctx.accounts.campaign;
 
         campaign.name = name;
@@ -38,6 +38,28 @@ pub mod crowd_founding {
 
         return Ok(());
     }
+
+    pub fn donate(ctx: Context<Donate>, amount: u64) -> ProgramResult {
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.user.key(),
+            &ctx.accounts.campaign.key(),
+            amount,
+        );
+
+        match anchor_lang::solana_program::program::invoke(
+            &ix, &[
+                ctx.accounts.user.to_account_info(),
+                ctx.accounts.campaign.to_account_info(),
+            ],
+        ) {
+            Ok(_) => println!("SUCCESS SEND AMOUNT: {}", amount),
+            Err(err) => println!("ERROR SEND AMOUNT: {}, error: {:?}", amount, err)
+        }
+
+        (&mut ctx.accounts.campaign).amount_donated += amount;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -61,6 +83,14 @@ pub struct Campaign {
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
+    #[account(mut)]
+    campaign: Account<'info, Campaign>,
+    #[account(mut)]
+    user: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct Donate<'info> {
     #[account(mut)]
     campaign: Account<'info, Campaign>,
     #[account(mut)]
